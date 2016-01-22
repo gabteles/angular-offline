@@ -244,7 +244,8 @@ angular
           // Fake response
           return $q.reject({
             config: config,
-            data: new Error('request queued'),
+            data: "",
+            cached: true,
             status: -1,
             headers: function(name) { return ''; },
             statusText: ''

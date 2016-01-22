@@ -16,6 +16,7 @@ module.exports = function (config) {
       'bower_components/angular-mocks/angular-mocks.js',
 
       'node_modules/chai/chai.js',
+      'node_modules/chai-spies/chai-spies.js',
 
       'angular-offline.js',
       'test.js'

@@ -240,7 +240,15 @@ angular
         // For other methods in offline mode, we will put them in wait.
         if (!connectionStatus.isOnline()) {
           storeRequest(config);
-          return $q.reject(new Error('request queued'));
+
+          // Fake response
+          return $q.reject({
+            config: config,
+            data: new Error('request queued'),
+            status: -1,
+            headers: function(name) { return ''; },
+            statusText: ''
+          });
         }
 
         return config;

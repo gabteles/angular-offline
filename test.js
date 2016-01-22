@@ -1,4 +1,5 @@
 var expect = chai.expect;
+var spy = chai.spy;
 
 describe('Angular offline', function () {
   var $http, $rootScope, $httpBackend, $cacheFactory, offline, startOffline, connectionStatus;
@@ -93,17 +94,22 @@ describe('Angular offline', function () {
     it('should stack request and return an error', function (done) {
       startOffline();
 
+      var successSpy = spy(function() {});
+      var failSpy = spy(function() {});
+
       $http.post('/test', {}, {
         offline: true
-      })
-      .catch(function (err) {
-        expect(err.message).to.equal('request queued');
-        var stack = $cacheFactory.get('offline-request-stack').get('stack');
-        expect(stack).to.length(1);
-        done();
-      });
+      }).then(successSpy, failSpy);
 
       $rootScope.$digest();
+
+      expect(successSpy).to.not.have.been.called();
+      expect(failSpy).to.have.been.called();
+
+      var stack = $cacheFactory.get('offline-request-stack').get('stack');
+      expect(stack).to.length(1);
+
+      done();
     });
 
     it('should process requests', function () {
@@ -117,7 +123,7 @@ describe('Angular offline', function () {
         offline: true
       });
 
-      $rootScope.$digest();
+      //$rootScope.$digest();
 
       connectionStatus.online = true;
       offline.processStack();

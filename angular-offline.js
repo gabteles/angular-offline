@@ -1,6 +1,6 @@
 /*! Angular offline v0.1.0 | (c) 2016 Greg Bergé | License MIT */
 angular
-.module('offline', [])
+.module('offline', ['uuid'])
 .service('connectionStatus', ['$window', '$rootScope', function ($window, $rootScope) {
 
   /**
@@ -42,8 +42,8 @@ angular
     return this;
   };
 
-  this.$get = ['$q', '$window', '$log', 'connectionStatus', '$cacheFactory',
-  function ($q, $window, $log, connectionStatus, $cacheFactory) {
+  this.$get = ['$q', '$window', '$log', 'connectionStatus', '$cacheFactory', 'rfc4122',
+  function ($q, $window, $log, connectionStatus, $cacheFactory, rfc4122) {
     var offline = {};
     var defaultStackCache = $cacheFactory('offline-request-stack');
 
@@ -108,15 +108,29 @@ angular
     }
 
     /**
+     * Generates an identifier to the
+     *
+     * @returns {int}
+     */
+
+    function getStack() {
+      var cache = getStackCache();
+      return cache.get('stack') || [];
+    }
+
+    /**
      * Push a request to the stack.
      *
      * @param {object} request
+     * @returns {string} cache key
      */
 
     function stackPush(request) {
       var stack = getStack();
+      request.$__offline_cache_key__$ = rfc4122.v4();
       stack.push(request);
       saveStack(stack);
+      return request.$__offline_cache_key__$;
     }
 
     /**
@@ -129,6 +143,9 @@ angular
       var stack = getStack();
       var request = stack.shift();
       saveStack(stack);
+      if (request && request.$__offline_cache_key__$) {
+        delete request.$__offline_cache_key__$;
+      }
       return request;
     }
 
@@ -136,10 +153,11 @@ angular
      * Store request to be played later.
      *
      * @param {object} config Request config
+     * @returns {string} cache key
      */
 
     function storeRequest(config) {
-      stackPush({
+      return stackPush({
         url: config.url,
         data: config.data,
         headers: config.headers,
@@ -201,6 +219,31 @@ angular
     };
 
     /**
+     * Deletes a request from the request status based on it's cacheKey
+     *
+     * @param {int} cacheKey
+     * @returns {boolean}
+     */
+    offline.removeRequest = function(cacheKey) {
+      var stack = getStack();
+      var i;
+
+      for (i = stack.length - 1; i >= 0; i--) {
+        if (stack[i].$__offline_cache_key__$ == cacheKey) {
+          break;
+        }
+      };
+
+      if (i > -1) {
+        stack.splice(i, 1);
+        saveStack(stack);
+        return true;
+      }
+
+      return false;
+    }
+
+    /**
      * Run offline using a requester ($http).
      *
      * @param {$http} requester
@@ -239,13 +282,14 @@ angular
 
         // For other methods in offline mode, we will put them in wait.
         if (!connectionStatus.isOnline()) {
-          storeRequest(config);
+          var cacheKey = storeRequest(config);
 
           // Fake response
           return $q.reject({
             config: config,
             data: "",
             cached: true,
+            cacheKey: cacheKey,
             status: -1,
             headers: function(name) { return ''; },
             statusText: ''

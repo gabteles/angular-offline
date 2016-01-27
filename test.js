@@ -134,5 +134,39 @@ describe('Angular offline', function () {
       // Second request.
       $httpBackend.flush(1);
     });
+
+    it("should keep an cache key on chaced requests", function() {
+      startOffline();
+
+      $http.post('/test', {}, {offline: true}).then(function() {}, function(response) {
+        expect(response).to.include.keys('cached', 'cacheKey');
+      });
+    });
+
+    it("should be able to remove stacked requests by cache key", function() {
+      startOffline();
+
+      $http.post('/test', {}, {offline: true}).then(function() {}, function(response) {
+        var removeSuccess = offline.removeRequest(response.cacheKey);
+        expect(removeSuccess).to.be.true;
+      });
+    });
+
+    it("should not be able to remove processed requests", function() {
+      startOffline();
+
+      var cacheKey;
+
+      $http.post('/test', {}, {offline: true}).then(function() {}, function(response) {
+        cacheKey = response.cacheKey;
+      });
+
+      connectionStatus.online = true;
+      offline.processStack();
+      $httpBackend.flush();
+
+      var removeSuccess = offline.removeRequest(cacheKey);
+      expect(removeSuccess).to.be.false;
+    });
   });
 });

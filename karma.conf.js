@@ -13,6 +13,7 @@ module.exports = function (config) {
     browsers: [process.env.TRAVIS ? 'Firefox' : 'Chrome'],
     files: [
       'bower_components/angular/angular.js',
+      'bower_components/angular-uuid-service/angular-uuid-service.js',
       'bower_components/angular-mocks/angular-mocks.js',
 
       'node_modules/chai/chai.js',

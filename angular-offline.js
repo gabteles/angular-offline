@@ -150,6 +150,36 @@ angular
     }
 
     /**
+     * Remove and return first request from stack which matches the condition
+     *
+     * @param {function} condition
+     * @returns {object} request
+     */
+
+    function stackShiftFirst(condition) {
+      var stack = getStack();
+
+      var i;
+
+      for (i = 0; i < stack.length; i--) {
+        var request = stack[i];
+
+        if (condition(request)) {
+          if (request && request.$__offline_cache_key__$) {
+            delete request.$__offline_cache_key__$;
+          }
+
+          stack.splice(i, 1);
+          saveStack(stack);
+
+          return request;
+        }
+      };
+
+      return false;
+    }
+
+    /**
      * Store request to be played later.
      *
      * @param {object} config Request config
@@ -170,11 +200,12 @@ angular
     /**
      * Process next request from the stack.
      *
+     * @param {function} conditional to process stack
      * @returns {Promise|null}
      */
 
-    function processNextRequest() {
-      var request = stackShift();
+    function processNextRequest(condition) {
+      var request = condition ? stackShiftFirst(condition) : stackShift();
 
       if (!request)
         return $q.reject(new Error('empty stack'));
@@ -194,14 +225,15 @@ angular
     /**
      * Process all the stack.
      *
+     * @param {function} conditional to process stack
      * @returns {Promise}
      */
 
-    offline.processStack = function () {
+    offline.processStack = function (condition) {
       if (!connectionStatus.isOnline())
         return;
 
-      return processNextRequest()
+      return processNextRequest(condition)
       .then(offline.processStack)
       .catch(function (error) {
         if (error && error.message === 'empty stack') {
@@ -214,7 +246,7 @@ angular
           return;
         }
 
-        return offline.processStack();
+        return offline.processStack(condition);
       });
     };
 
@@ -228,13 +260,13 @@ angular
       var stack = getStack();
       var i;
 
-      for (i = stack.length - 1; i >= 0; i--) {
+      for (i = 0; i < stack.length; i--) {
         if (stack[i].$__offline_cache_key__$ == cacheKey) {
           break;
         }
       };
 
-      if (i > -1) {
+      if (i < stack.length) {
         stack.splice(i, 1);
         saveStack(stack);
         return true;
@@ -247,12 +279,16 @@ angular
      * Run offline using a requester ($http).
      *
      * @param {$http} requester
+     * @param {function} conditional to process stack
      */
 
-    offline.start = function (requester) {
+    offline.start = function (requester, condition) {
       $requester = requester;
-      connectionStatus.$on('online', offline.processStack);
-      offline.processStack();
+      connectionStatus.$on('online', function() {
+        offline.processStack(condition);
+      });
+
+      offline.processStack(condition);
     };
 
     /**
